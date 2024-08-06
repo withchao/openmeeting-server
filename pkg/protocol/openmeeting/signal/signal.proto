@@ -1,5 +1,6 @@
 syntax = "proto3";
 import "sdkws/sdkws.proto";
+import "openmeeting/meeting/meeting.proto";
 package openmeeting.signal;
 
 option go_package = "github.com/openimsdk/protocol/openmeeting/signal";
@@ -10,14 +11,14 @@ message UserInfo {
   string account = 3;
 }
 
-message ParticipantMetaData {
-  UserInfo userInfo = 1;
-}
+//message ParticipantMetaData {
+//  UserInfo userInfo = 1;
+//}
 
 message GetJoinTokenReq{
   string room = 1;
   string identity = 2;
-  ParticipantMetaData metaData = 3;
+  meeting.ParticipantMetaData metaData = 3;
 }
 
 /*message NotifyMeetingHostData {
@@ -98,7 +99,7 @@ message InvitationInfo  {
 message SignalInviteReq {
   InvitationInfo invitation = 1;
   openim.sdkws.OfflinePushInfo offlinePushInfo  = 2;
-  ParticipantMetaData participant = 3;
+  meeting.ParticipantMetaData participant = 3;
   string userID = 4;
 }
 
@@ -112,7 +113,7 @@ message SignalInviteResp {
 message SignalInviteInGroupReq {
   InvitationInfo invitation = 1;
   openim.sdkws.OfflinePushInfo offlinePushInfo  = 2;
-  ParticipantMetaData participant = 3;
+  meeting.ParticipantMetaData participant = 3;
   string userID = 4;
 }
 
@@ -126,7 +127,7 @@ message SignalInviteInGroupResp {
 message SignalCancelReq {
   InvitationInfo invitation = 1;
   openim.sdkws.OfflinePushInfo offlinePushInfo  = 2;
-  ParticipantMetaData participant = 3;
+  meeting.ParticipantMetaData participant = 3;
   string userID = 4;
 }
 
@@ -137,7 +138,7 @@ message SignalCancelResp {
 message SignalAcceptReq {
   InvitationInfo invitation = 1;
   openim.sdkws.OfflinePushInfo offlinePushInfo  = 2;
-  ParticipantMetaData participant = 3;
+  meeting.ParticipantMetaData participant = 3;
   int32 opUserPlatformID = 4;
   string userID = 5;
 }
@@ -161,7 +162,7 @@ message SignalHungUpResp {
 message SignalRejectReq {
   InvitationInfo invitation = 1;
   openim.sdkws.OfflinePushInfo offlinePushInfo  = 2;
-  ParticipantMetaData participant = 3;
+  meeting.ParticipantMetaData participant = 3;
   int32 opUserPlatformID = 4;
   string userID = 5;
 }
@@ -176,25 +177,25 @@ message SignalGetRoomByGroupIDReq {
 
 message SignalGetRoomByGroupIDResp {
   InvitationInfo invitation = 1;
-  repeated ParticipantMetaData participant = 2;
+  repeated meeting.ParticipantMetaData participant = 2;
   string roomID = 3;
 }
 
 message SignalOnRoomParticipantConnectedReq {
   InvitationInfo invitation = 1;
-  repeated ParticipantMetaData participant = 2;
+  repeated meeting.ParticipantMetaData participant = 2;
   string groupID = 3;
 }
 
 message SignalOnRoomParticipantDisconnectedReq {
   InvitationInfo invitation = 1;
-  repeated ParticipantMetaData participant = 2;
+  repeated meeting.ParticipantMetaData participant = 2;
   string groupID = 3;
 }
 
 message SignalGetTokenByRoomIDReq {
   string roomID = 1;
-  ParticipantMetaData participant = 2;
+  meeting.ParticipantMetaData participant = 2;
   string userID = 3;
 }
 

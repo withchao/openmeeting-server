@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/livekit/protocol/livekit"
+	lksdk "github.com/livekit/server-sdk-go"
 	"github.com/openimsdk/openmeeting-server/pkg/rpcclient"
 	"github.com/openimsdk/openmeeting-server/pkg/rtc"
 	"github.com/openimsdk/protocol/msg"
@@ -11,6 +12,7 @@ import (
 	"github.com/openimsdk/protocol/openmeeting/signal"
 	"github.com/openimsdk/tools/errs"
 	"github.com/openimsdk/tools/log"
+	"github.com/openimsdk/tools/mcontext"
 	"github.com/openimsdk/tools/utils/datautil"
 )
 
@@ -27,7 +29,7 @@ func (x *signalLiveKit) validateInvitation(invitation *signal.InvitationInfo) (e
 	return nil
 }
 
-func (x *signalLiveKit) CheckUsersIsBusyLine(ctx context.Context, userIDs []string) (busyLineUserIDs []string, err error) {
+func (x *signalLiveKit) checkUsersIsBusyLine(ctx context.Context, userIDs []string) (busyLineUserIDs []string, err error) {
 	roomsResp, err := x.livekit.roomClient.ListRooms(ctx, &livekit.ListRoomsRequest{})
 	if err != nil {
 		log.ZError(ctx, "CheckUsersIsBusyLine list rooms err:", err)
@@ -48,13 +50,56 @@ func (x *signalLiveKit) CheckUsersIsBusyLine(ctx context.Context, userIDs []stri
 	return busyLineUserIDs, nil
 }
 
+func (x *signalLiveKit) getParticipantMetaDataS(ctx context.Context, roomID string) ([]*meeting.ParticipantMetaData, []string, error) {
+	var metaDataS []*meeting.ParticipantMetaData
+	participantList, err := x.livekit.ListParticipants(ctx, roomID)
+	if err != nil {
+		return nil, nil, errs.WrapMsg(err, "get participant data failed")
+	}
+	var usridList []string
+	for _, one := range participantList {
+		var metaData meeting.ParticipantMetaData
+		if err := json.Unmarshal([]byte(one.Metadata), &metaData); err != nil {
+			log.ZError(ctx, "Unmarshal failed roomId:", err)
+			return nil, nil, errs.WrapMsg(err, "Unmarshal participant meta data failed userID:", one.Identity)
+		}
+		usridList = append(usridList, metaData.UserInfo.UserID)
+		metaDataS = append(metaDataS, &metaData)
+	}
+	return metaDataS, usridList, nil
+}
+
+func (x *signalLiveKit) newCallback(ctx context.Context, roomID string, invitation *signal.InvitationInfo) func(room *livekit.Room) *lksdk.RoomCallback {
+	return func(room *livekit.Room) *lksdk.RoomCallback {
+		cb := NewRTC(roomID, x.livekit)
+		callback := NewSignalRoomCallback(
+			mcontext.NewCtx("room_callback_"+mcontext.GetOperationID(ctx)), roomID, room.Sid, cb, x.user, invitation, x.getParticipantMetaDataS, x.msg)
+		return &lksdk.RoomCallback{
+			ParticipantCallback: lksdk.ParticipantCallback{
+				OnDataReceived: func(data []byte, rp *lksdk.RemoteParticipant) {
+					log.ZDebug(ctx, "data received:", "data:", string(data))
+				},
+			},
+			OnRoomMetadataChanged: func(metadata string) {
+				log.ZDebug(ctx, "meta data change", "metaData:", metadata)
+			},
+			OnParticipantConnected:    callback.OnParticipantConnected,
+			OnParticipantDisconnected: callback.OnParticipantDisconnected,
+			OnDisconnected:            callback.OnDisconnected,
+			OnReconnected:             callback.OnReconnected,
+			OnReconnecting:            callback.OnReconnecting,
+		}
+	}
+
+}
+
 func (x *signalLiveKit) InviteInUsers(ctx context.Context, req *signal.SignalInviteReq, metadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo) (*rtc.SignalInviteResp, error) {
 	if err := x.validateInvitation(req.Invitation); err != nil {
 		log.ZDebug(ctx, "InviteInUsers validateInvitation error")
 		return nil, err
 	}
 	// 占线
-	busyLineUserIDList, err := x.CheckUsersIsBusyLine(ctx, req.Invitation.InviteeUserIDList)
+	busyLineUserIDList, err := x.checkUsersIsBusyLine(ctx, req.Invitation.InviteeUserIDList)
 	if err != nil {
 		log.ZDebug(ctx, "InviteInUsers busy error")
 		return nil, err
@@ -66,10 +111,8 @@ func (x *signalLiveKit) InviteInUsers(ctx context.Context, req *signal.SignalInv
 	var token, liveURL string
 	if err != nil {
 		// if room is not exist, create room
-		roomMateData := &meeting.MeetingMetadata{}
-
-		sid, token, liveURL, err = x.livekit.CreateRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, roomMateData, metadata, nil)
-		//sid, token, liveURL, err = x.CreateRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, nil, metadata, nil, inviationInfo, msgClient)
+		callback := x.newCallback(ctx, req.Invitation.RoomID, inviationInfo)
+		sid, token, liveURL, err = x.livekit.createRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, nil, metadata, x.user, callback)
 		log.ZDebug(ctx, "InviteInUsers CreateRoom", "token", token)
 	} else {
 		//if room is exist, get the token\liveUrl
@@ -97,7 +140,7 @@ func (x *signalLiveKit) InviteInGroup(ctx context.Context, req *signal.SignalInv
 		return nil, err
 	}
 	// 占线
-	busyLineUserIDList, err := x.CheckUsersIsBusyLine(ctx, req.Invitation.InviteeUserIDList)
+	busyLineUserIDList, err := x.checkUsersIsBusyLine(ctx, req.Invitation.InviteeUserIDList)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +149,8 @@ func (x *signalLiveKit) InviteInGroup(ctx context.Context, req *signal.SignalInv
 	var sid, token, liveURL string
 	sid, err = x.livekit.RoomIsExist(ctx, req.Invitation.RoomID)
 	if err != nil {
-		sid, token, liveURL, err = x.livekit.CreateRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, roomMetadata, participantMetadata, userRpc)
+		callback := x.newCallback(ctx, req.Invitation.RoomID, inviationInfo)
+		sid, token, liveURL, err = x.livekit.createRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, roomMetadata, participantMetadata, userRpc, callback)
 		log.ZDebug(ctx, "InviteInGroup CreateRoom", "token", token)
 	} else {
 		token, liveURL, err = x.livekit.GetJoinToken(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, participantMetadata, false)
@@ -138,7 +182,7 @@ func (x *signalLiveKit) Cancel(ctx context.Context, req *signal.SignalCancelReq)
 	return &rtc.SignalCancelResp{Sid: sID, SignalCancelResp: &signal.SignalCancelResp{}}, nil
 }
 
-func (x *signalLiveKit) Accept(ctx context.Context, req *signal.SignalAcceptReq, metadata *signal.ParticipantMetaData) (*rtc.SignalAcceptResp, error) {
+func (x *signalLiveKit) Accept(ctx context.Context, req *signal.SignalAcceptReq, metadata *meeting.ParticipantMetaData) (*rtc.SignalAcceptResp, error) {
 	sid, err := x.livekit.RoomIsExist(ctx, req.Invitation.RoomID)
 	if err != nil {
 		return nil, err
@@ -181,7 +225,7 @@ func (x *signalLiveKit) Reject(ctx context.Context, req *signal.SignalRejectReq)
 	return &rtc.SignalRejectResp{Sid: sid, SignalRejectResp: &signal.SignalRejectResp{}}, nil
 }
 
-func (x *signalLiveKit) GetTokenByRoomID(ctx context.Context, req *signal.SignalGetTokenByRoomIDReq, metadata *signal.ParticipantMetaData) (*signal.SignalGetTokenByRoomIDResp, error) {
+func (x *signalLiveKit) GetTokenByRoomID(ctx context.Context, req *signal.SignalGetTokenByRoomIDReq, metadata *meeting.ParticipantMetaData) (*signal.SignalGetTokenByRoomIDResp, error) {
 	_, err := x.livekit.RoomIsExist(ctx, req.RoomID)
 	if err != nil {
 		return nil, err
@@ -197,7 +241,7 @@ func (x *signalLiveKit) GetTokenByRoomID(ctx context.Context, req *signal.Signal
 }
 
 func (x *signalLiveKit) GetRoomByGroupID(ctx context.Context, req *signal.SignalGetRoomByGroupIDReq) (*signal.SignalGetRoomByGroupIDResp, error) {
-	participants, usrisList, err := x.livekit.GetParticipantMetaDataS(ctx, req.GroupID)
+	participants, usrisList, err := x.getParticipantMetaDataS(ctx, req.GroupID)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +256,7 @@ func (x *signalLiveKit) GetRoomByGroupID(ctx context.Context, req *signal.Signal
 	var invitation *signal.InvitationInfo
 	if len(resplk.Rooms) > 0 {
 		if resplk.Rooms[0].Metadata != "" {
-			meetingMetadata = &signal.MeetingMetadata{}
+			meetingMetadata = &meeting.MeetingMetadata{}
 			if err := json.Unmarshal([]byte(resplk.Rooms[0].Metadata), meetingMetadata); err != nil {
 				return nil, err
 			}
@@ -252,9 +296,9 @@ func (x *signalLiveKit) GetRooms(ctx context.Context, req *signal.SignalGetRooms
 		if err != nil {
 			return nil, err
 		}
-		var metaDataList []*signal.ParticipantMetaData
+		var metaDataList []*meeting.ParticipantMetaData
 		for _, participant := range participantResp.GetParticipants() {
-			metadata := &signal.ParticipantMetaData{}
+			metadata := &meeting.ParticipantMetaData{}
 			if err := json.Unmarshal([]byte(participant.Metadata), metadata); err != nil {
 				log.ZError(ctx, "Unmarshal err", err, "metadata", participant.Metadata)
 				continue
