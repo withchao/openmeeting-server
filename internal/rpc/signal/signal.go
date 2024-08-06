@@ -3,24 +3,13 @@ package signal
 import (
 	"context"
 	"fmt"
-	"github.com/openimsdk/openmeeting-server/pkg/common/storage/controller"
 	"github.com/openimsdk/openmeeting-server/pkg/common/storage/model"
-	"github.com/openimsdk/openmeeting-server/pkg/rpcclient"
-	"github.com/openimsdk/openmeeting-server/pkg/rtc"
 	"github.com/openimsdk/protocol/constant"
-	"github.com/openimsdk/protocol/msg"
 	"github.com/openimsdk/protocol/openmeeting/meeting"
 	"github.com/openimsdk/protocol/openmeeting/signal"
 	"github.com/openimsdk/tools/errs"
 	"github.com/openimsdk/tools/log"
 )
-
-type signalServer struct {
-	userRpc  *rpcclient.User
-	rtc      rtc.SignalRtc
-	msg      msg.MsgClient
-	signalDB controller.SignalDatabase
-}
 
 func (m *signalServer) SignalMessageAssemble(ctx context.Context, req *signal.SignalMessageAssembleReq) (*signal.SignalMessageAssembleResp, error) {
 	switch payload := req.SignalReq.Payload.(type) {
@@ -33,7 +22,7 @@ func (m *signalServer) SignalMessageAssemble(ctx context.Context, req *signal.Si
 			return nil, errs.WrapMsg(err, "get user info failed")
 		}
 		participant := generateParticipantMetaData(userInfo)
-		resp, err := m.rtc.InviteInUsers(ctx, payload.Invite, participant, payload.Invite.Invitation, m.msg)
+		resp, err := m.rtc.InviteInUsers(ctx, payload.Invite, participant, payload.Invite.Invitation)
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +65,7 @@ func (m *signalServer) SignalMessageAssemble(ctx context.Context, req *signal.Si
 			return nil, errs.WrapMsg(err, "generate group meeting meta data failed")
 		}
 		participant := generateParticipantMetaData(userInfo)
-		resp, err := m.rtc.InviteInGroup(ctx, payload.InviteInGroup, metaData, participant, payload.InviteInGroup.Invitation, m.msg)
+		resp, err := m.rtc.InviteInGroup(ctx, payload.InviteInGroup, metaData, participant, payload.InviteInGroup.Invitation)
 		if err != nil {
 			return nil, err
 		}

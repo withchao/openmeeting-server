@@ -21,6 +21,7 @@ import (
 var (
 	OpenMeetingRPCUserCfgFileName    string
 	OpenMeetingRPCMeetingCfgFileName string
+	OpenMeetingRPCSignalCfgFileName  string
 	RedisConfigFileName              string
 	MongodbConfigFileName            string
 	DiscoveryConfigFilename          string
@@ -43,6 +44,7 @@ func init() {
 	OpenMeetingAdminAPICfgFileName = "openmeeting-admin-api.yml"
 	OpenMeetingRPCUserCfgFileName = "openmeeting-rpc-user.yml"
 	OpenMeetingRPCMeetingCfgFileName = "openmeeting-rpc-meeting.yml"
+	OpenMeetingRPCSignalCfgFileName = "openmeeting-rpc-signal.yml"
 	DiscoveryConfigFilename = "discovery.yml"
 	LogConfigFileName = "log.yml"
 	ShareFileName = "share.yml"

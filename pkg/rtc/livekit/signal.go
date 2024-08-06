@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go"
+	"github.com/openimsdk/openmeeting-server/pkg/common/config"
 	"github.com/openimsdk/openmeeting-server/pkg/rpcclient"
 	"github.com/openimsdk/openmeeting-server/pkg/rtc"
 	"github.com/openimsdk/protocol/msg"
@@ -15,6 +16,14 @@ import (
 	"github.com/openimsdk/tools/mcontext"
 	"github.com/openimsdk/tools/utils/datautil"
 )
+
+func NewSignalLiveKit(conf *config.RTC, user *rpcclient.User, msg msg.MsgClient) rtc.SignalRtc {
+	return &signalLiveKit{
+		livekit: NewLiveKit(conf).(*LiveKit),
+		user:    user,
+		msg:     msg,
+	}
+}
 
 type signalLiveKit struct {
 	livekit *LiveKit
@@ -135,7 +144,7 @@ func (x *signalLiveKit) InviteInUsers(ctx context.Context, req *signal.SignalInv
 	}, nil
 }
 
-func (x *signalLiveKit) InviteInGroup(ctx context.Context, req *signal.SignalInviteInGroupReq, roomMetadata *meeting.MeetingMetadata, participantMetadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo, msgClient msg.MsgClient, userRpc *rpcclient.User) (*rtc.SignalInviteInGroupResp, error) {
+func (x *signalLiveKit) InviteInGroup(ctx context.Context, req *signal.SignalInviteInGroupReq, roomMetadata *meeting.MeetingMetadata, participantMetadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo) (*rtc.SignalInviteInGroupResp, error) {
 	if err := x.validateInvitation(req.Invitation); err != nil {
 		return nil, err
 	}
@@ -150,7 +159,7 @@ func (x *signalLiveKit) InviteInGroup(ctx context.Context, req *signal.SignalInv
 	sid, err = x.livekit.RoomIsExist(ctx, req.Invitation.RoomID)
 	if err != nil {
 		callback := x.newCallback(ctx, req.Invitation.RoomID, inviationInfo)
-		sid, token, liveURL, err = x.livekit.createRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, roomMetadata, participantMetadata, userRpc, callback)
+		sid, token, liveURL, err = x.livekit.createRoom(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, roomMetadata, participantMetadata, x.user, callback)
 		log.ZDebug(ctx, "InviteInGroup CreateRoom", "token", token)
 	} else {
 		token, liveURL, err = x.livekit.GetJoinToken(ctx, req.Invitation.RoomID, req.Invitation.InviterUserID, participantMetadata, false)

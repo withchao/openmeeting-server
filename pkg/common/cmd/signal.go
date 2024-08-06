@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"github.com/openimsdk/openmeeting-server/internal/rpc/meeting"
+	"github.com/openimsdk/openmeeting-server/internal/rpc/signal"
 	"github.com/openimsdk/openmeeting-server/pkg/common/config"
 	"github.com/openimsdk/openmeeting-server/pkg/common/prommetrics"
 	"github.com/openimsdk/openmeeting-server/pkg/common/startrpc"
@@ -11,23 +11,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type MeetingRpcCmd struct {
+type SignalRpcCmd struct {
 	*RootCmd
 	ctx           context.Context
 	configMap     map[string]any
-	meetingConfig *meeting.Config
+	meetingConfig *signal.Config
 }
 
-func NewMeetingRpcCmd() *MeetingRpcCmd {
-	var meetingConfig meeting.Config
-	ret := &MeetingRpcCmd{meetingConfig: &meetingConfig}
+func NewSignalRpcCmd() *SignalRpcCmd {
+	var signalConfig signal.Config
+	ret := &SignalRpcCmd{meetingConfig: &signalConfig}
 	ret.configMap = map[string]any{
-		OpenMeetingRPCMeetingCfgFileName: &meetingConfig.Rpc,
-		RedisConfigFileName:              &meetingConfig.Redis,
-		MongodbConfigFileName:            &meetingConfig.Mongo,
-		ShareFileName:                    &meetingConfig.Share,
-		DiscoveryConfigFilename:          &meetingConfig.Discovery,
-		LiveKitConfigFilename:            &meetingConfig.Rtc,
+		OpenMeetingRPCSignalCfgFileName: &signalConfig.Rpc,
+		RedisConfigFileName:             &signalConfig.Redis,
+		MongodbConfigFileName:           &signalConfig.Mongo,
+		ShareFileName:                   &signalConfig.Share,
+		DiscoveryConfigFilename:         &signalConfig.Discovery,
+		LiveKitConfigFilename:           &signalConfig.Rtc,
 	}
 	ret.RootCmd = NewRootCmd(program.GetProcessName(), WithConfigMap(ret.configMap))
 	ret.ctx = context.WithValue(context.Background(), "version", config.Version)
@@ -37,12 +37,12 @@ func NewMeetingRpcCmd() *MeetingRpcCmd {
 	return ret
 }
 
-func (a *MeetingRpcCmd) Exec() error {
+func (a *SignalRpcCmd) Exec() error {
 	return a.Execute()
 }
 
-func (a *MeetingRpcCmd) runE() error {
+func (a *SignalRpcCmd) runE() error {
 	return startrpc.Start(a.ctx, &a.meetingConfig.Discovery, &a.meetingConfig.Rpc.Prometheus, a.meetingConfig.Rpc.RPC.ListenIP,
 		a.meetingConfig.Rpc.RPC.RegisterIP, a.meetingConfig.Rpc.RPC.Ports,
-		a.Index(), a.meetingConfig.Share.RpcRegisterName.Meeting, a.meetingConfig, meeting.Start, []prometheus.Collector{prommetrics.SignalCreatedCounter})
+		a.Index(), a.meetingConfig.Share.RpcRegisterName.Signal, a.meetingConfig, signal.Start, []prometheus.Collector{prommetrics.SignalCreatedCounter})
 }

@@ -1,4 +1,4 @@
-package meeting
+package signal
 
 import (
 	"context"
@@ -10,20 +10,13 @@ import (
 	"github.com/openimsdk/openmeeting-server/pkg/rtc"
 	"github.com/openimsdk/openmeeting-server/pkg/rtc/livekit"
 	userfind "github.com/openimsdk/openmeeting-server/pkg/user"
-	pbmeeting "github.com/openimsdk/protocol/openmeeting/meeting"
+	"github.com/openimsdk/protocol/msg"
+	"github.com/openimsdk/protocol/openmeeting/signal"
 	"github.com/openimsdk/tools/db/mongoutil"
 	"github.com/openimsdk/tools/db/redisutil"
 	registry "github.com/openimsdk/tools/discovery"
 	"google.golang.org/grpc"
 )
-
-type meetingServer struct {
-	meetingStorageHandler controller.Meeting
-	RegisterCenter        registry.SvcDiscoveryRegistry
-	meetingRtc            rtc.MeetingRtc
-	config                *Config
-	userRpc               *rpcclient.User
-}
 
 type Config struct {
 	Rpc       config.Meeting
@@ -44,26 +37,41 @@ func Start(ctx context.Context, config *Config, client registry.SvcDiscoveryRegi
 		return err
 	}
 
-	meetingDB, err := mgo.NewMeetingMongo(mgoCli.GetDB())
+	signalDB, err := mgo.NewSignal(mgoCli.GetDB())
 	if err != nil {
 		return err
 	}
-	meetingCache := redis.NewMeeting(rdb, meetingDB, redis.GetDefaultOpt())
-	database := controller.NewMeeting(meetingDB, meetingCache, mgoCli.GetTx())
-	meetingRtc := livekit.NewLiveKit(&config.Rtc)
+	signalInvitationDB, err := mgo.NewSignalInvitation(mgoCli.GetDB())
+	if err != nil {
+		return err
+	}
+	signalCache := redis.NewSignal(rdb, signalDB, redis.GetDefaultOpt())
+	db := controller.NewSignalDatabase(signalDB, signalInvitationDB, signalCache, mgoCli.GetTx())
 
 	user := userfind.NewOpenIMU(client, config.Share.RpcRegisterName.User)
+	msgConn, err := client.GetConn(context.Background(), config.Share.RpcRegisterName.Msg)
+	if err != nil {
+		return err
+	}
+	userRpc := rpcclient.NewUser(user)
+	msgClient := msg.NewMsgClient(msgConn)
+	signalRtc := livekit.NewSignalLiveKit(&config.Rtc, userRpc, msgClient)
 
 	// init rpc client here
-	userRpc := rpcclient.NewUser(user)
-
-	u := &meetingServer{
-		meetingStorageHandler: database,
-		RegisterCenter:        client,
-		config:                config,
-		meetingRtc:            meetingRtc,
-		userRpc:               userRpc,
+	u := &signalServer{
+		userRpc:  userRpc,
+		rtc:      signalRtc,
+		msg:      msgClient,
+		signalDB: db,
 	}
-	pbmeeting.RegisterMeetingServiceServer(server, u)
+
+	signal.RegisterSignalServer(server, u)
 	return nil
+}
+
+type signalServer struct {
+	userRpc  *rpcclient.User
+	rtc      rtc.SignalRtc
+	msg      msg.MsgClient
+	signalDB controller.SignalDatabase
 }

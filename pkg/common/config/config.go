@@ -110,6 +110,8 @@ type Redis struct {
 type RpcRegisterName struct {
 	User    string `mapstructure:"user"`
 	Meeting string `mapstructure:"meeting"`
+	Signal  string `mapstructure:"signal"`
+	Msg     string `mapstructure:"msg"`
 }
 
 type Discovery struct {

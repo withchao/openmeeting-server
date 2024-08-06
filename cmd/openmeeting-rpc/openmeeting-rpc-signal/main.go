@@ -12,19 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prommetrics
+package main
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/openimsdk/openmeeting-server/pkg/common/cmd"
+	"github.com/openimsdk/tools/system/program"
 )
 
-var (
-	MeetingCreatedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "meeting_created_counter",
-		Help: "meeting created counter",
-	})
-	SignalCreatedCounter = prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "signal_created_counter",
-		Help: "signal created counter",
-	})
-)
+func main() {
+	if err := cmd.NewSignalRpcCmd().Exec(); err != nil {
+		program.ExitWithError(err)
+	}
+}

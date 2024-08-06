@@ -2,7 +2,6 @@ package rtc
 
 import (
 	"context"
-	"github.com/openimsdk/protocol/msg"
 	"github.com/openimsdk/protocol/openmeeting/meeting"
 	"github.com/openimsdk/protocol/openmeeting/signal"
 )
@@ -38,8 +37,8 @@ type SignalRejectResp struct {
 }
 
 type SignalRtc interface {
-	InviteInUsers(ctx context.Context, req *signal.SignalInviteReq, metadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo, msgClient msg.MsgClient) (*SignalInviteResp, error)
-	InviteInGroup(ctx context.Context, req *signal.SignalInviteInGroupReq, roomMetadata *meeting.MeetingMetadata, metadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo, msgClient msg.MsgClient) (*SignalInviteInGroupResp, error)
+	InviteInUsers(ctx context.Context, req *signal.SignalInviteReq, metadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo) (*SignalInviteResp, error)
+	InviteInGroup(ctx context.Context, req *signal.SignalInviteInGroupReq, roomMetadata *meeting.MeetingMetadata, metadata *meeting.ParticipantMetaData, inviationInfo *signal.InvitationInfo) (*SignalInviteInGroupResp, error)
 	Cancel(ctx context.Context, req *signal.SignalCancelReq) (*SignalCancelResp, error)
 	Accept(ctx context.Context, req *signal.SignalAcceptReq, metadata *meeting.ParticipantMetaData) (*SignalAcceptResp, error)
 	HungUp(ctx context.Context, req *signal.SignalHungUpReq) (*SignalHungUpResp, error)
