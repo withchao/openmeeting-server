@@ -12,7 +12,7 @@ prometheus:
   # Whether to enable prometheus
   enable: true
   # Prometheus listening ports, must be consistent with the number of rpc.ports
-  ports: [ 20101 ]
+  ports: [ 20201 ]
 
 
 
