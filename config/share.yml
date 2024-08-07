@@ -1,5 +1,7 @@
 rpcRegisterName:
   user: user
   meeting: meeting
+  signal: signal
+  msg: msg
  
 
