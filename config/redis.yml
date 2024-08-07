@@ -1,6 +1,6 @@
 address: [ localhost:16379 ]
 username: ''
-password: openmeeting_v1
+password: openIM123
 enablePipeline: false
 clusterMode: false
 db: 0
