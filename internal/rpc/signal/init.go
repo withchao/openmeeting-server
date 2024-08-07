@@ -19,7 +19,7 @@ import (
 )
 
 type Config struct {
-	Rpc       config.Meeting
+	Rpc       config.Signal
 	Redis     config.Redis
 	Mongo     config.Mongo
 	Discovery config.Discovery

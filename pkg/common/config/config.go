@@ -90,6 +90,15 @@ type Meeting struct {
 	Prometheus Prometheus `mapstructure:"prometheus"`
 }
 
+type Signal struct {
+	RPC struct {
+		RegisterIP string `mapstructure:"registerIP"`
+		ListenIP   string `mapstructure:"listenIP"`
+		Ports      []int  `mapstructure:"ports"`
+	} `mapstructure:"rpc"`
+	Prometheus Prometheus `mapstructure:"prometheus"`
+}
+
 type RTC struct {
 	URL       []string `mapstructure:"url"`
 	ApiKey    string   `mapstructure:"apiKey"`
